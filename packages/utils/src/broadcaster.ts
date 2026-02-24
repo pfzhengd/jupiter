@@ -6,7 +6,7 @@ type TStore = Record<string, Set<Listener>>
 type TSubscriberSnapshot = Readonly<Record<string, readonly Listener[]>>
 export interface IBroadcaster {
   subscribe: (channel: string, commit: Listener) => Unsubscriber
-  publish: (channel: string, data: unknown | unknown[]) => void
+  publish: (channel: string, ...args: unknown[]) => void
   unsubscribe: (channel: string, commit?: Listener) => boolean
   getSubscribers:()=>TSubscriberSnapshot
 }
@@ -36,15 +36,11 @@ export const Broadcaster = (): IBroadcaster => {
     },
 
     /** 广播消息 */
-    publish: (channel: string, data: unknown | unknown[]): void => {
+    publish: (channel: string, ...args: unknown[]): void => {
       if (hasOwn(store, channel)) {
-        if (!Array.isArray(data)) {
-          data = [data]
-        }
-
         store[channel].forEach((commit: Listener) => {
           try {
-            commit.apply(null, data)
+            commit(...args)
           } catch (err) {
             console.warn(`The commit in channel '${channel}' threw an error.`, err)
           }
