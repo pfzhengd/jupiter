@@ -1,11 +1,11 @@
-import { TNoop } from '../types'
 import { hasOwn } from './common'
 
-type TStore = Record<string, any>
+type Listener = (...args: unknown[]) => void
+type TStore = Record<string, Set<Listener>>
 export interface IBroadcaster {
-  subscribe: (channel: string, commit: Function) => void
-  publish: (channel: string, data: any) => void
-  unsubscribe: (channel: string, commit?: Function) => boolean
+  subscribe: (channel: string, commit: Listener) => void
+  publish: (channel: string, data: unknown | unknown[]) => void
+  unsubscribe: (channel: string, commit?: Listener) => boolean
   getSubscribers:()=>TStore
 }
 
@@ -14,7 +14,7 @@ export const Broadcaster = (): IBroadcaster => {
 
   return {
     /** 订阅广播 */
-    subscribe: (channel: string, commit: TNoop): void => {
+    subscribe: (channel: string, commit: Listener): void => {
       if (hasOwn(store, channel)) {
         store[channel].add(commit)
       } else {
@@ -23,13 +23,13 @@ export const Broadcaster = (): IBroadcaster => {
     },
 
     /** 广播消息 */
-    publish: (channel: string, data: any): void => {
+    publish: (channel: string, data: unknown | unknown[]): void => {
       if (hasOwn(store, channel)) {
         if (!Array.isArray(data)) {
           data = [data]
         }
 
-        store[channel].forEach((commit: Function) => {
+        store[channel].forEach((commit: Listener) => {
           try {
             commit.apply(null, data)
           } catch (err) {
@@ -42,10 +42,10 @@ export const Broadcaster = (): IBroadcaster => {
     },
 
     /** 取消订阅广播 */
-    unsubscribe: (channel: string, commit?: TNoop): boolean => {
+    unsubscribe: (channel: string, commit?: Listener): boolean => {
       if (hasOwn(store, channel)) {
         if (commit) {
-          const commits:Set<Function> = store[channel]
+          const commits:Set<Listener> = store[channel]
           const deleted = commits.delete(commit)
           if (deleted) {
             if (commits.size === 0) {
