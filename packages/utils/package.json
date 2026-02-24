@@ -1,5 +1,5 @@
 {
-    "name": "@jupiter/utils",
+    "name": "@jupjs/utils",
     "version": "0.0.0",
     "description": "utils library",
     "main": "lib/main/index.js",
