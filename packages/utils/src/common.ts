@@ -12,7 +12,7 @@ export const emptyObject: Readonly<{}> = Object.freeze({})
  * @export
  * @param {any} args
  */
-export function noop (...rest: any[]): Promise<any>|any { }
+export function noop (...rest: unknown[]): void { }
 
 /**
  * 判断对象是否是纯粹的对象类型
@@ -50,7 +50,9 @@ export function hasOwn (obj: object, key: string | number | symbol): boolean {
  */
 export function extend (to: object, _from: object): object {
   for (const key in _from) {
-    to[key] = _from[key]
+    if (hasOwn(_from, key)) {
+      to[key] = _from[key]
+    }
   }
   return to
 }
@@ -62,13 +64,15 @@ export function extend (to: object, _from: object): object {
  * @param {Function} fn
  * @returns Function
  */
-export function once<T extends Function> (fn: T): T {
+export function once<T extends (...args: any[]) => any> (fn: T): T {
   let called = false
-  return function (...rest: [any]): Promise<any>|any {
+  let cachedResult: ReturnType<T>
+  return function (...rest: Parameters<T>): ReturnType<T> {
     if (!called) {
       called = true
-      return fn.apply(this, rest)
+      cachedResult = fn.apply(this, rest)
     }
+    return cachedResult
   } as unknown as T
 }
 
@@ -80,7 +84,7 @@ export function once<T extends Function> (fn: T): T {
  * @returns any
  */
 export function deepClone (target: any): object {
-  if ([null, undefined, NaN, false].indexOf(target)) {
+  if (target === null || typeof target === 'undefined') {
     return target
   }
   if (typeof target !== 'object' && typeof target !== 'function') {
@@ -102,11 +106,12 @@ export function deepClone (target: any): object {
  * @param target
  */
 export const deepMerge = function (sources:Record<string, any>, target:Record<string, any>):Record<string, any> {
-  if (typeof sources === 'object' && typeof target === 'object') {
+  if (typeof sources === 'object' && sources !== null && typeof target === 'object' && target !== null) {
     const names = Object.getOwnPropertyNames(sources)
     names.forEach(name => {
       if (_toString.call((sources[name])) === '[object Object]') {
-        target[name] = deepMerge(sources[name], target[name])
+        const base = (typeof target[name] === 'object' && target[name] !== null) ? target[name] : {}
+        target[name] = deepMerge(sources[name], base)
       } else {
         target[name] = sources[name]
       }
@@ -123,7 +128,7 @@ export const deepMerge = function (sources:Record<string, any>, target:Record<st
  * @param {any} obj
  * @returns
  */
-export function isString (obj: any): Boolean {
+export function isString (obj: unknown): boolean {
   return typeof obj === 'string'
 }
 
@@ -210,7 +215,7 @@ export function isObject (obj: any): boolean {
   return obj !== null && typeof obj === 'object'
 }
 
-export function isFunction (target: any) {
+export function isFunction (target: unknown): target is (...args: unknown[]) => unknown {
   return typeof target === 'function'
 }
 
@@ -252,7 +257,7 @@ export function debounce (
   }
 }
 
-export function def (obj: Object, key: string, val: any, enumerable?: boolean):void {
+export function def (obj: object, key: string, val: unknown, enumerable?: boolean):void {
   Object.defineProperty(obj, key, {
     value: val,
     enumerable: !!enumerable,
@@ -328,7 +333,7 @@ export function shallowEqual (objA: Record<string, TBaseType>, objB: Record<stri
   if (objA === objB) {
     return true
   }
-  if (objA.length !== objB.length) {
+  if (Object.keys(objA).length !== Object.keys(objB).length) {
     return false
   }
   for (const key in objA) {
