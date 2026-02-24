@@ -1,5 +1,5 @@
 export * from './common'
-export * from './loader'
+export * from './ResourceLoader'
 export * from './EventBus'
 export * from './date'
 export * from './precies-calculation'
