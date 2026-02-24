@@ -30,7 +30,11 @@ export const Broadcaster = (): IBroadcaster => {
         }
 
         store[channel].forEach((commit: Function) => {
-          commit.apply(null, data)
+          try {
+            commit.apply(null, data)
+          } catch (err) {
+            console.warn(`The commit in channel '${channel}' threw an error.`, err)
+          }
         })
       } else {
         console.warn(`The '${channel}' is not found by the 'store'.`)
