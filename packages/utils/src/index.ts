@@ -1,6 +1,6 @@
 export * from './common'
 export * from './loader'
-export * from './broadcaster'
+export * from './EventBus'
 export * from './date'
 export * from './precies-calculation'
 export * from './perreload-image'
