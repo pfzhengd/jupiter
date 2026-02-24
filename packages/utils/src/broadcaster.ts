@@ -2,11 +2,12 @@ import { hasOwn } from './common'
 
 type Listener = (...args: unknown[]) => void
 type TStore = Record<string, Set<Listener>>
+type TSubscriberSnapshot = Readonly<Record<string, readonly Listener[]>>
 export interface IBroadcaster {
   subscribe: (channel: string, commit: Listener) => void
   publish: (channel: string, data: unknown | unknown[]) => void
   unsubscribe: (channel: string, commit?: Listener) => boolean
-  getSubscribers:()=>TStore
+  getSubscribers:()=>TSubscriberSnapshot
 }
 
 export const Broadcaster = (): IBroadcaster => {
@@ -67,7 +68,11 @@ export const Broadcaster = (): IBroadcaster => {
      * 获取订阅个数
      */
     getSubscribers () {
-      return Object.freeze({ ...store })
+      const snapshot: Record<string, readonly Listener[]> = {}
+      Object.keys(store).forEach((channel) => {
+        snapshot[channel] = Object.freeze(Array.from(store[channel]))
+      })
+      return Object.freeze(snapshot)
     }
   }
 }
