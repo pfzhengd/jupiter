@@ -1,10 +1,11 @@
 import { hasOwn } from './common'
 
 type Listener = (...args: unknown[]) => void
+type Unsubscriber = () => boolean
 type TStore = Record<string, Set<Listener>>
 type TSubscriberSnapshot = Readonly<Record<string, readonly Listener[]>>
 export interface IBroadcaster {
-  subscribe: (channel: string, commit: Listener) => void
+  subscribe: (channel: string, commit: Listener) => Unsubscriber
   publish: (channel: string, data: unknown | unknown[]) => void
   unsubscribe: (channel: string, commit?: Listener) => boolean
   getSubscribers:()=>TSubscriberSnapshot
@@ -15,11 +16,22 @@ export const Broadcaster = (): IBroadcaster => {
 
   return {
     /** 订阅广播 */
-    subscribe: (channel: string, commit: Listener): void => {
+    subscribe: (channel: string, commit: Listener): Unsubscriber => {
       if (hasOwn(store, channel)) {
         store[channel].add(commit)
       } else {
         store[channel] = new Set([commit])
+      }
+      return () => {
+        if (!hasOwn(store, channel)) {
+          return true
+        }
+        const commits = store[channel]
+        const deleted = commits.delete(commit)
+        if (deleted && commits.size === 0) {
+          delete store[channel]
+        }
+        return true
       }
     },
 
