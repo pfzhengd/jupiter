@@ -41,10 +41,12 @@ export const Broadcaster = (): IBroadcaster => {
     unsubscribe: (channel: string, commit?: TNoop): boolean => {
       if (hasOwn(store, channel)) {
         if (commit) {
-          const commits:Array<Function> = store[channel]
-          const index = (Array.isArray(commits) && commits.indexOf(commit)) || -1
-          if (index > -1) {
-            commits.splice(index, 1)
+          const commits:Set<Function> = store[channel]
+          const deleted = commits.delete(commit)
+          if (deleted) {
+            if (commits.size === 0) {
+              delete store[channel]
+            }
           } else {
             console.warn(`The ${commit} is not found by the 'store'.`)
           }
