@@ -7,6 +7,7 @@ import {
   once,
   isString,
   format,
+  formatOrThrow,
   formatCurrency,
   isFunction,
   isEmptyObject,
@@ -337,5 +338,52 @@ describe('noop function', () => {
     const backwardCompatibleResult: void = newNoopResult as void
 
     expect(backwardCompatibleResult).toBe(oldNoopResult)
+  })
+})
+
+describe('once enhancements', () => {
+  it('should retry execution after first throw', () => {
+    let count = 0
+    const fn = once(() => {
+      count++
+      if (count === 1) {
+        throw new Error('first call failed')
+      }
+      return 42
+    })
+    expect(() => fn()).toThrow('first call failed')
+    expect(fn()).toBe(42)
+  })
+})
+
+describe('format enhancements', () => {
+  it('formatOrThrow should throw on invalid input', () => {
+    expect(() => formatOrThrow('{1}')).toThrow('The number of parameters passed in is incorrect.')
+  })
+})
+
+describe('formatCurrency enhancements', () => {
+  it('should return empty string for invalid numeric string', () => {
+    expect(formatCurrency('abc')).toBe('')
+    expect(formatCurrency('')).toBe('')
+  })
+})
+
+describe('debounce immediate mode', () => {
+  it('should trigger again after wait window', () => {
+    jest.useFakeTimers()
+    let count = 0
+    const fn = debounce(() => {
+      count++
+    }, 100, true)
+
+    fn()
+    fn()
+    expect(count).toBe(1)
+
+    jest.advanceTimersByTime(101)
+    fn()
+    expect(count).toBe(2)
+    jest.useRealTimers()
   })
 })

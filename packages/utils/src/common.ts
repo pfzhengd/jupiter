@@ -11,6 +11,8 @@ export const emptyObject: Readonly<{}> = Object.freeze({})
  *
  * @export
  * @param {any} args
+ * @example
+ * noop()
  */
 export function noop (...rest: unknown[]): void { }
 
@@ -20,6 +22,9 @@ export function noop (...rest: unknown[]): void { }
  * @export
  * @param {*} obj
  * @returns
+ * @example
+ * isPlainObject({ a: 1 }) // true
+ * isPlainObject([]) // false
  */
 export function isPlainObject (obj: object): boolean {
   if (_toString.call(obj) === '[object Object]') {
@@ -35,6 +40,8 @@ export function isPlainObject (obj: object): boolean {
  * @param {Object} obj
  * @param {String} key
  * @returns Boolean
+ * @example
+ * hasOwn({ a: 1 }, 'a') // true
  */
 export function hasOwn (obj: object, key: string | number | symbol): boolean {
   return hasOwnProperty.call(obj, key)
@@ -47,6 +54,8 @@ export function hasOwn (obj: object, key: string | number | symbol): boolean {
  * @param {Object} to
  * @param {Object} _from
  * @returns Object
+ * @example
+ * extend({ a: 1 }, { b: 2 }) // { a: 1, b: 2 }
  */
 export function extend (to: object, _from: object): object {
   for (const key in _from) {
@@ -63,14 +72,36 @@ export function extend (to: object, _from: object): object {
  * @export
  * @param {Function} fn
  * @returns Function
+ * @example
+ * const onlyOnce = once(() => 1)
+ * onlyOnce() // 1
+ * onlyOnce() // 1
  */
 export function once<T extends (...args: any[]) => any> (fn: T): T {
   let called = false
   let cachedResult: ReturnType<T>
+  let hasCachedResult = false
   return function (...rest: Parameters<T>): ReturnType<T> {
-    if (!called) {
+    if (called && hasCachedResult) {
+      return cachedResult
+    }
+    try {
+      const result = fn.apply(this, rest) as ReturnType<T>
+      if (result && typeof (result as Promise<unknown>).then === 'function') {
+        cachedResult = (result as Promise<unknown>).catch((err) => {
+          called = false
+          hasCachedResult = false
+          throw err
+        }) as ReturnType<T>
+      } else {
+        cachedResult = result
+      }
       called = true
-      cachedResult = fn.apply(this, rest)
+      hasCachedResult = true
+    } catch (err) {
+      called = false
+      hasCachedResult = false
+      throw err
     }
     return cachedResult
   } as unknown as T
@@ -82,8 +113,10 @@ export function once<T extends (...args: any[]) => any> (fn: T): T {
  * @export
  * @param {any} target
  * @returns any
+ * @example
+ * deepClone({ a: { b: 1 } })
  */
-export function deepClone (target: any): object {
+export function deepClone<T> (target: T): T {
   if (target === null || typeof target === 'undefined') {
     return target
   }
@@ -91,19 +124,23 @@ export function deepClone (target: any): object {
     // 原始类型直接返回
     return target
   }
-  const obj = Array.isArray(target) ? [] : {}
+  const obj: any = Array.isArray(target) ? [] : {}
   for (const i in target) {
     if (hasOwn(target, i)) {
-      obj[i] = typeof target[i] === 'object' ? deepClone(target[i]) : target[i]
+      const current = target[i]
+      obj[i] = typeof current === 'object' && current !== null ? deepClone(current) : current
     }
   }
-  return obj
+  return obj as T
 }
 
 /**
  *
  * @param sources Object,string,number,null,undefined,boolean,symbol
  * @param target
+ * @example
+ * deepMerge({ a: 1, b: { c: 2 } }, { b: { d: 3 } })
+ * // { a: 1, b: { c: 2, d: 3 } }
  */
 export const deepMerge = function (sources:Record<string, any>, target:Record<string, any>):Record<string, any> {
   if (typeof sources === 'object' && sources !== null && typeof target === 'object' && target !== null) {
@@ -127,6 +164,9 @@ export const deepMerge = function (sources:Record<string, any>, target:Record<st
  * 判断是否是 string 对象
  * @param {any} obj
  * @returns
+ * @example
+ * isString('hello') // true
+ * isString(1) // false
  */
 export function isString (obj: unknown): boolean {
   return typeof obj === 'string'
@@ -137,24 +177,31 @@ export function isString (obj: unknown): boolean {
  * @author pfzheng
  * @date 2020-08-04
  * @export
- * @returns {(string | Error)}
+ * @returns {(string)}
+ * @example
+ * formatOrThrow('{1}, {2}', 'a', 'b') // 'a, b'
  */
-export function format (...rest: Array<any>): string | Error {
+export function formatOrThrow (...rest: Array<unknown>): string {
   const args: Array<any> = slice.call(rest)
   const len: number = args.length
-  if (len > 1) {
-    let str: string = args[0]
+  if (len <= 1) {
+    throw new Error('The number of parameters passed in is incorrect.')
+  }
+  let str: string = args[0]
+  if (!isString(str)) {
+    throw new Error('The first value in the parameters must be a string type.')
+  }
+  for (let i: number = 1; i < len; i++) {
+    str = str.replace(new RegExp('\\{' + i + '\\}', 'g'), args[i])
+  }
+  return str
+}
 
-    if (!isString(str)) {
-      return new Error('The first value in the parameters must be a string type.')
-    }
-
-    for (let i: number = 1; i < len; i++) {
-      str = str.replace(new RegExp('\\{' + i + '\\}', 'g'), args[i])
-    }
-    return str
-  } else {
-    return new Error('The number of parameters passed in is incorrect.')
+export function format (...rest: Array<unknown>): string | Error {
+  try {
+    return formatOrThrow(...rest)
+  } catch (err) {
+    return err as Error
   }
 }
 
@@ -167,6 +214,9 @@ export interface FormatCurrencyOptionsType {
  * @description 将数字进行货币格式化
  * @param value 要进行货币格式化的数字（支持String类型和Number类型）
  * @param unit 格式化货币的单元，默认是中国货币符号￥
+ * @example
+ * formatCurrency(12345) // '￥ 12,345.00'
+ * formatCurrency('12345', '$') // '$ 12,345.00'
  */
 export function formatCurrency (value: string | number, options:FormatCurrencyOptionsType | string = { unit: '￥', decimalPlaces: 2 }) {
   let unit = '￥'
@@ -186,9 +236,17 @@ export function formatCurrency (value: string | number, options:FormatCurrencyOp
   if (value === undefined || value === null) {
     return ''
   }
+  let parsedValue: number = value as number
   if (typeof value === 'string') {
-    value = parseFloat(value)
+    if (value.trim() === '') {
+      return ''
+    }
+    parsedValue = Number(value)
   }
+  if (!Number.isFinite(parsedValue)) {
+    return ''
+  }
+  value = parsedValue
 
   if (decimalPlaces > 0) {
     value = value.toFixed(decimalPlaces)
@@ -210,31 +268,57 @@ export function formatCurrency (value: string | number, options:FormatCurrencyOp
  * 判断传参是否是对象类型
  * @param obj
  * @returns
+ * @example
+ * isObject({}) // true
+ * isObject(null) // false
  */
 export function isObject (obj: any): boolean {
   return obj !== null && typeof obj === 'object'
 }
 
+/**
+ * 判断目标是否为函数
+ * @example
+ * isFunction(() => {}) // true
+ * isFunction(1) // false
+ */
 export function isFunction (target: unknown): target is (...args: unknown[]) => unknown {
   return typeof target === 'function'
 }
 
+/**
+ * 生成一个非加密用途的唯一标识字符串
+ * @example
+ * getUUID() // UID-1700000000000-1234567890123
+ */
 export const getUUID = (prefix: string = 'UID') => {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * (9e12 - 1)) + 1e12}`
 }
 
 export const ø = Object.create(null)
 
+/**
+ * 判断对象是否为空对象
+ * @example
+ * isEmptyObject({}) // true
+ * isEmptyObject({ a: 1 }) // false
+ */
 export const isEmptyObject = (obj: object) => {
   return Object.keys(obj).length === 0
 }
 
+/**
+ * 防抖函数：短时间内多次触发只执行一次
+ * @example
+ * const onResize = debounce(() => console.log('resize'), 300)
+ * window.addEventListener('resize', onResize)
+ */
 export function debounce (
   event = noop,
   wait = 50,
   immediately = false
 ) {
-  let timeout = null
+  let timeout: ReturnType<typeof setTimeout> | null = null
   let called = false
 
   return function (...rest) {
@@ -242,21 +326,31 @@ export function debounce (
       clearTimeout(timeout)
       timeout = null
     }
-
-    const execute = () => {
+    if (immediately) {
+      const shouldCallNow = !called
+      called = true
+      timeout = setTimeout(() => {
+        called = false
+        timeout = null
+      }, wait)
+      if (shouldCallNow) {
+        event.call(this, ...rest)
+      }
+      return
+    }
+    timeout = setTimeout(() => {
       event.call(this, ...rest)
       timeout = null
-    }
-
-    if (immediately && !called) {
-      execute()
-      called = true
-    } else {
-      timeout = setTimeout(execute, wait)
-    }
+    }, wait)
   }
 }
 
+/**
+ * 为对象定义属性
+ * @example
+ * const obj = {}
+ * def(obj, 'name', 'jupiter')
+ */
 export function def (obj: object, key: string, val: unknown, enumerable?: boolean):void {
   Object.defineProperty(obj, key, {
     value: val,
@@ -266,6 +360,13 @@ export function def (obj: object, key: string, val: unknown, enumerable?: boolea
   })
 }
 
+/**
+ * 将对象某个已有属性设置为只读
+ * @example
+ * const obj = { a: 1 }
+ * setPropertyReadonly(obj, 'a')
+ * // obj.a = 2 // throw Error
+ */
 export function setPropertyReadonly (obj:Record<string, any>, propertyName:string) {
   if (!hasOwn(obj, propertyName)) {
     throw new Error(`Property '${propertyName}' does not exist on the object`)
@@ -286,6 +387,8 @@ export function setPropertyReadonly (obj:Record<string, any>, propertyName:strin
 
 /**
  * 一个将类似 8.5K,8.5M,8.5B,8.5T,8.5Q 格式的数据转换成数字的函数
+ * @example
+ * parseNumber('8.5K') // 8500
  */
 export function parseNumber (value: string): number {
   const number = parseFloat(value)
@@ -311,6 +414,8 @@ export function parseNumber (value: string): number {
 
 /**
  * 在给定长度的数组中，通过平均分配指定的数字，使每个元素的值尽可能接近平均值。
+ * @example
+ * distributeEvenly(10, 3) // [4, 3, 3]
  */
 export function distributeEvenly (total:number, num:number) {
   const quotient = Math.floor(total / num)
@@ -328,6 +433,9 @@ export function distributeEvenly (total:number, num:number) {
  * @param objA
  * @param objB
  * @returns
+ * @example
+ * shallowEqual({ a: 1 }, { a: 1 }) // true
+ * shallowEqual({ a: 1 }, { a: 2 }) // false
  */
 export function shallowEqual (objA: Record<string, TBaseType>, objB: Record<string, TBaseType>) {
   if (objA === objB) {
@@ -337,7 +445,7 @@ export function shallowEqual (objA: Record<string, TBaseType>, objB: Record<stri
     return false
   }
   for (const key in objA) {
-    if (objA[key] !== objB[key]) {
+    if (hasOwn(objA, key) && (!hasOwn(objB, key) || objA[key] !== objB[key])) {
       return false
     }
   }
