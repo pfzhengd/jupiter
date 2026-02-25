@@ -1,0 +1,20 @@
+{
+  "name": "@jupjs/biome-config",
+  "version": "0.2.2",
+  "description": "The Biome configuration for Jupiter projects",
+  "main": "biome.json",
+  "files": [
+    "biome.json",
+    "README.md"
+  ],
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "packageManager": "pnpm@10.25.0",
+  "peerDependencies": {
+    "@biomejs/biome": ">=1.9.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
